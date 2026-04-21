@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>NightGuard — 深夜手机守护</title>
+  <style>
+    :root {
+      --bg: #0f1934;
+      --bg-risk: #0d1526;
+      --bg-success: #0f1f1a;
+      --bg-fail: #150f2a;
+      --card: #1e2d4a;
+      --card-2: #24385f;
+      --text: #f8fafc;
+      --text-2: #94a3b8;
+      --accent: #3b82f6;
+      --warn: #f59e0b;
+      --success: #10b981;
+      --purple: #8b5cf6;
+      --radius-lg: 16px;
+      --radius-md: 12px;
+      --pad: 20px;
+      --gap: 16px;
+      --gap-lg: 24px;
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Noto Sans SC", "Segoe UI", Roboto, sans-serif;
+      --shadow: 0 4px 20px rgba(0,0,0,0.35);
+      --tr: 0.25s ease-out;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: linear-gradient(180deg, var(--bg) 0%, #0b132b 100%);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      transition: background var(--tr);
+    }
+    body.bg-risk { background: linear-gradient(180deg, var(--bg-risk) 0%, #080e1a 100%); }
+    body.bg-success { background: linear-gradient(180deg, var(--bg-success) 0%, #081510 100%); }
+    body.bg-fail { background: linear-gradient(180deg, var(--bg-fail) 0%, #0d0820 100%); }
+
+    .app {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: calc(env(safe-area-inset-top,16px) + var(--pad)) var(--pad) calc(env(safe-area-inset-bottom,16px) + 80px);
+    }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: var(--gap-lg);
+    }
+    .topbar .brand { font-size: 20px; font-weight: 600; letter-spacing: -0.3px; }
+    .topbar .actions { display: flex; gap: 10px; }
+    .btn-icon {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--card); border: 1px solid rgba(255,255,255,0.08);
+      color: var(--text); display: grid; place-items: center;
+      cursor: pointer; font-size: 13px; font-weight: 700;
+      transition: transform var(--tr), filter var(--tr);
+      box-shadow: var(--shadow);
+    }
+    .btn-icon:active { transform: scale(0.94); filter: brightness(1.1); }
+
+    .screen { display: none; }
+    .screen.active { display: block; animation: fadeUp var(--tr); }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    h1 { font-size: 28px; font-weight: 700; line-height: 1.25; margin-bottom: var(--gap); letter-spacing: -0.5px; }
+    h2 { font-size: 22px; font-weight: 600; line-height: 1.3; margin-bottom: var(--gap); letter-spacing: -0.3px; }
+    h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+    p { line-height: 1.6; }
+    .sub { color: var(--text-2); font-size: 14px; line-height: 1.6; margin-bottom: var(--gap); }
+    .small { font-size: 12px; color: var(--text-2); line-height: 1.5; }
+
+    .card {
+      background: var(--card);
+      border-radius: var(--radius-lg);
+      padding: var(--pad);
+      border: 1px solid rgba(255,255,255,0.07);
+      box-shadow: var(--shadow);
+      margin-bottom: var(--gap);
+    }
+    .card.warn { border-left: 3px solid var(--warn); }
+    .card.success { border-left: 3px solid var(--success); }
+    .card.accent { border-left: 3px solid var(--accent); }
+    .card.purple { border-left: 3px solid var(--purple); }
+    .card.red-warn { border: 1px solid rgba(245,158,11,0.4); background: rgba(245,158,11,0.08); }
+
+    .row { display: flex; align-items: center; gap: var(--gap); }
+    .row.space { justify-content: space-between; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); margin-bottom: var(--gap); }
+
+    .btn {
+      width: 100%; padding: 15px; border-radius: var(--radius-md);
+      border: 0; font-size: 15px; font-weight: 600; color: var(--text);
+      background: var(--accent); cursor: pointer;
+      transition: filter var(--tr), transform var(--tr);
+      box-shadow: var(--shadow); margin-top: 8px;
+    }
+    .btn:active { transform: scale(0.98); filter: brightness(1.12); }
+    .btn.secondary { background: var(--card-2); }
+    .btn.warn-btn { background: var(--warn); }
+    .btn.success-btn { background: var(--success); }
+    .btn.purple-btn { background: var(--purple); }
+    .btn.full { height: 56px; font-size: 17px; border-radius: var(--radius-lg); }
+
+    .options { display: flex; flex-direction: column; gap: 10px; margin-bottom: var(--gap); }
+    .option {
+      background: var(--card-2); border: 1.5px solid rgba(255,255,255,0.07);
+      border-radius: var(--radius-md); padding: 14px 16px;
+      cursor: pointer; transition: border-color var(--tr), background var(--tr), transform var(--tr);
+    }
+    .option:active { transform: scale(0.98); }
+    .option.selected { border: 2px solid var(--accent); background: rgba(59,130,246,0.13); }
+    .option .opt-title { font-weight: 600; font-size: 15px; margin-bottom: 3px; }
+    .option .opt-desc { color: var(--text-2); font-size: 13px; }
+
+    .input {
+      width: 100%; background: var(--card-2);
+      border: 1px solid rgba(255,255,255,0.08); color: var(--text);
+      border-radius: var(--radius-md); padding: 13px 15px;
+      font-size: 15px; outline: none;
+      transition: border-color var(--tr);
+    }
+    .input:focus { border-color: var(--accent); }
+
+    .time-picker {
+      display: flex; gap: 6px; align-items: center;
+      background: var(--card-2); border-radius: var(--radius-md);
+      padding: 8px 12px; border: 1px solid rgba(255,255,255,0.08);
+      margin-bottom: var(--gap);
+    }
+    .time-picker select {
+      background: transparent; border: 0; color: var(--text);
+      font-size: 20px; font-weight: 600; padding: 6px 4px;
+    }
+    .time-picker select:focus { outline: none; }
+    .time-picker span { font-size: 20px; font-weight: 700; color: var(--text-2); }
+
+    /* BREATH */
+    .breath-wrap { display: flex; flex-direction: column; align-items: center; padding: 24px 0; gap: 16px; }
+    .breath-ring {
+      width: 160px; height: 160px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(59,130,246,0.3) 0%, rgba(59,130,246,0.05) 70%);
+      display: grid; place-items: center;
+      animation: breathe 14s infinite ease-in-out;
+      box-shadow: 0 0 60px rgba(59,130,246,0.2);
+    }
+    @keyframes breathe {
+      0%   { transform: scale(0.85); opacity: 0.7; }
+      35%  { transform: scale(1.08); opacity: 1; }
+      50%  { transform: scale(1.08); opacity: 1; }
+      85%  { transform: scale(0.85); opacity: 0.7; }
+      100% { transform: scale(0.85); opacity: 0.7; }
+    }
+    .breath-label { font-size: 22px; font-weight: 700; }
+    .breath-step { font-size: 13px; color: var(--text-2); text-align: center; }
+
+    /* RING TIMER */
+    .ring-wrap { display: flex; flex-direction: column; align-items: center; padding: 24px 0; gap: 12px; }
+    .ring-wrap svg { transform: rotate(-90deg); }
+    .ring-center { position: relative; width: 160px; height: 160px; display: grid; place-items: center; }
+    .ring-center svg { position: absolute; }
+    .ring-value { font-size: 34px; font-weight: 700; }
+
+    /* PROGRESS BAR */
+    .ob-progress { display: flex; gap: 6px; margin-bottom: var(--gap-lg); }
+    .ob-step {
+      flex: 1; height: 3px; border-radius: 99px;
+      background: rgba(255,255,255,0.12);
+      transition: background var(--tr);
+    }
+    .ob-step.done { background: var(--accent); }
+
+    /* TAGS */
+    .tag {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 10px; border-radius: 999px;
+      background: var(--card-2); font-size: 12px; color: var(--text-2);
+    }
+    .tag.s { background: rgba(16,185,129,0.15); color: var(--success); }
+    .tag.w { background: rgba(245,158,11,0.15); color: var(--warn); }
+    .tag.a { background: rgba(59,130,246,0.15); color: var(--accent); }
+
+    /* STAT */
+    .stat-row { display: flex; gap: var(--gap); margin-bottom: var(--gap); }
+    .stat-box {
+      flex: 1; background: var(--card-2); border-radius: var(--radius-md);
+      padding: 14px; text-align: center;
+    }
+    .stat-box .val { font-size: 26px; font-weight: 700; margin-bottom: 4px; }
+    .stat-box .lbl { font-size: 11px; color: var(--text-2); }
+
+    /* CHART */
+    .chart { display: flex; align-items: flex-end; gap: 6px; height: 100px; margin-top: 12px; }
+    .bar {
+      flex: 1; border-radius: 4px 4px 0 0; opacity: 0.85;
+      position: relative; transition: height 0.6s ease-out;
+    }
+    .bar.success-bar { background: var(--success); }
+    .bar.fail-bar { background: var(--purple); }
+    .bar .bl { position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%); font-size: 10px; color: var(--text-2); white-space: nowrap; }
+
+    /* TIMELINE */
+    .timeline { display: flex; flex-direction: column; gap: 8px; }
+    .tl-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .tl-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .tl-dot.s { background: var(--success); }
+    .tl-dot.f { background: var(--purple); }
+    .tl-dot.n { background: rgba(255,255,255,0.2); }
+    .tl-label { font-size: 14px; }
+    .tl-label .day { color: var(--text-2); font-size: 12px; }
+
+    /* STREAK */
+    .streak { text-align: center; padding: 16px 0; }
+    .streak .num { font-size: 52px; font-weight: 800; color: var(--accent); line-height: 1; }
+    .streak .lbl { font-size: 13px; color: var(--text-2); margin-top: 6px; }
+    .streak .note { font-size: 12px; color: var(--text-2); margin-top: 8px; line-height: 1.5; }
+
+    /* RISK BADGE */
+    .risk-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 999px;
+      font-size: 13px; font-weight: 600;
+    }
+    .risk-badge.high { background: rgba(245,158,11,0.2); color: var(--warn); }
+    .risk-badge.normal { background: rgba(16,185,129,0.2); color: var(--success); }
+    .risk-badge.critical { background: rgba(239,68,68,0.2); color: #ef4444; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+    /* MODAL */
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: none; align-items: flex-end; justify-content: center; z-index: 1000; padding: var(--pad); }
+    .modal.active { display: flex; }
+    .modal-box { width: 100%; max-width: 480px; background: var(--card); border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-lg); padding: var(--pad); border: 1px solid rgba(255,255,255,0.08); animation: slideUp 0.3s ease-out; }
+    @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    /* TOAST */
+    .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: var(--card-2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); padding: 11px 18px; font-size: 14px; opacity: 0; pointer-events: none; transition: opacity var(--tr); z-index: 999; white-space: nowrap; box-shadow: var(--shadow); }
+    .toast.show { opacity: 1; }
+
+    /* LOADING */
+    .loading { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 48px 0; }
+    .spinner { width: 26px; height: 26px; border: 3px solid rgba(255,255,255,0.15); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.9s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* NAV */
+    .nav { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(15,25,52,0.95); backdrop-filter: blur(12px); border-top: 1px solid rgba(255,255,255,0.07); display: grid; grid-template-columns: 1fr 1fr 1fr; padding: 8px 0 calc(env(safe-area-inset-bottom,0px) + 8px); }
+    .nav-item { display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--text-2); font-size: 11px; font-weight: 600; cursor: pointer; padding: 6px 0; transition: color var(--tr); }
+    .nav-item.active { color: var(--accent); }
+    .nav-item .ni { font-size: 22px; }
+
+    /* PANIC BTN */
+    .panic-btn {
+      width: 100%; height: 64px; border-radius: var(--radius-lg);
+      background: linear-gradient(135deg, #d97706, #f59e0b);
+      border: 0; color: #fff; font-size: 18px; font-weight: 700;
+      cursor: pointer; box-shadow: 0 4px 20px rgba(245,158,11,0.35);
+      transition: transform var(--tr), filter var(--tr);
+      letter-spacing: -0.3px;
+    }
+    .panic-btn:active { transform: scale(0.98); filter: brightness(1.08); }
+
+    /* INTERV OPTIONS */
+    .interv-opts { display: flex; flex-direction: column; gap: 10px; margin-bottom: var(--gap-lg); }
+    .interv-opt {
+      background: var(--card-2); border: 1.5px solid rgba(255,255,255,0.07);
+      border-radius: var(--radius-md); padding: 16px;
+      cursor: pointer; transition: all var(--tr);
+    }
+    .interv-opt:active { transform: scale(0.98); }
+    .interv-opt.sel { border-color: var(--accent); background: rgba(59,130,246,0.12); }
+    .interv-opt .io-title { font-weight: 600; font-size: 15px; }
+    .interv-opt .io-sub { font-size: 12px; color: var(--text-2); margin-top: 3px; }
+
+    /* SAVED TIME */
+    .saved-time { text-align: center; padding: 20px 0; }
+    .saved-time .big { font-size: 44px; font-weight: 800; color: var(--success); line-height: 1; }
+    .saved-time .lbl { color: var(--text-2); font-size: 14px; margin-top: 8px; }
+    .saved-time .note { font-size: 12px; color: var(--text-2); margin-top: 10px; line-height: 1.6; }
+
+    /* REMIND QUICK */
+    .remind-quick { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .rq-btn { padding: 8px 14px; border-radius: 999px; background: var(--card-2); border: 1.5px solid rgba(255,255,255,0.08); color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer; transition: all var(--tr); }
+    .rq-btn.sel { border-color: var(--accent); background: rgba(59,130,246,0.15); color: var(--accent); }
+    .rq-btn:active { transform: scale(0.96); }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand" id="brandName">🌙 NightGuard</div>
+    <div class="actions">
+      <button class="btn-icon" id="langBtn">中/EN</button>
+      <button class="btn-icon" id="settingsBtn">⚙️</button>
+    </div>
+  </div>
+
+  <!-- OB1 -->
+  <section class="screen active" id="s-ob1">
+    <div class="ob-progress">
+      <div class="ob-step done"></div>
+      <div class="ob-step"></div>
+      <div class="ob-step"></div>
+      <div class="ob-step"></div>
+      <div class="ob-step"></div>
+    </div>
+    <h1 id="ob1h">你不是意志力不够</h1>
+    <p class="sub" id="ob1s">每个人都有自己最难控制的时刻。<br/>NightGuard 不评判你，只在那一刻帮你撑一下。</p>
+    <div style="height:32px"></div>
+    <button class="btn full" id="ob1next">开始了解我的情况</button>
+  </section>
+
+  <!-- OB2 -->
+  <section class="screen" id="s-ob2">
+    <div class="ob-progress">
+      <div class="ob-step done"></div>
+      <div class="ob-step done"></div>
+      <div class="ob-step"></div>
+      <div class="ob-step"></div>
+      <div class="ob-step"></div>
+    </div>
+    <h2 id="ob2h">告诉我你最常卡住的地方</h2>
+    <p class="sub" id="ob2s">第一版我们专注于"深夜刷手机"场景</p>
+    <div class="options" id="ob2opts">
+      <div class="option selected" data-v="phone">
+        <div class="opt-title">🌙 深夜刷手机，停不下来</div>
+        <div class="opt-desc">晚上拿起手机后越刷越久</div>
+      </div>
+      <div class="option" data-v="procrast">
+        <div class="opt-title">⏰ 明明要开始，就是拖着不动</div>
+        <div class="opt-desc">打开电脑却迟迟不开始</div>
+      </div>
+      <div class="option" data-v="shopping">
+        <div class="opt-title">🛒 一时冲动，买了不需要的东西</div>
+        <div class="opt-desc">压力大时容易冲动消费</div>
+      </div>
+      <div class="option" data-v="binge">
+        <div class="opt-title">🍟 压力大时，忍不住暴食</div>
+        <div class="opt-desc">情绪波动时控制不住饮食</div>
+      </div>
+    </div>
+    <button class="btn full" id="ob2next">下一步</button>
+  </section>
+
+  <!-- OB3 -->
+  <section class="screen" id="s-ob3">
+    <div class="ob-progress">
+      <div class="ob-step done"></div>
+      <div class="ob-step done"></div>
+      <div class="ob-step done"></div>
+      <div class="ob-step"></div>
+      <div class="ob-step"></div>
+    </div>
+    <h2>你的高风险时段是什么时候？</h2>
+    <p class="sub">我们会在这个时间前提醒你</p>
+    <div class="time-picker">
+      <select id="rH">
+        <option>20</option><option>21</option><option value="22" selected>22</option><option>23</option><option>00</option>
+      </select>
+      <span>:</span>
+      <select id="rM">
+        <option value="00" selected>00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option>
+      </select>
+    </div>
+    <h2>那个时候你通常是什么状态？</h2>
+    <div class="options" id="ob3opts">
+      <div class="option" data-v="tired"><div class="opt-title">😮‍💨 很累，但睡不着</div></div>
+      <div class="option" data-v="anxious"><div class="opt-title">😰 有点焦虑，想逃避</div></div>
+      <div class="option selected" data-v="habit"><div class="opt-title">📱 只是习惯性拿起手机</div></div>
+      <div class="option" data-v="bored"><div class="opt-title">🥱 无聊，不知道做什么</div></div>
+    </div>
+    <button class="btn full" id="ob3next">下一步</button>
+  </section>
+
+  <!-- OB4 PROFILE -->
+  <section class="screen" id="s-ob4">
+    <div class="ob-progress">
+      <div class="ob-step done"></div>
+      <div class="ob-step done"></div>
+      <div class="ob-step done"></div>
+      <div class="ob-step done"></div>
+      <div class="ob-step"></div>
+    </div>
+    <h2>这是你的风险档案</h2>
+    <div class="loading" id="ob4load"><div class="spinner"></div><span>正在分析你的情况...</span></div>
+    <div id="ob4result" style="display:none">
+      <div class="card accent">
+        <h3>🕐 高风险时段</h3>
+        <p id="ob4time" style="font-size:20px;font-weight:700;margin:4px 0">22:00</p>
+        <p class="small">我们会在这个时间提前 30 分钟提醒你</p>
+      </div>
+      <div class="card">
+        <h3>💭 触发状态</h3>
+        <p id="ob4trigger">习惯性拿起手机</p>
+      </div>
+      <div class="card warn">
+        <h3>⚠️ 主要失控原因</h3>
+        <p>没有及时的提醒，一旦开始就很难停下来</p>
+      </div>
+      <div class="card success">
+        <h3>🛡️ 适合你的保护方式</h3>
+        <p>提前 30 分钟提醒 + 高风险时段即时干预</p>
+      </div>
+      <button class="btn full" id="ob4next">听起来很准，开始设置我的计划</button>
+    </div>
+  </section>
+
+  <!-- OB5 PLAN -->
+  <section class="screen" id="s-ob5">
+    <div class="ob-progress">
+      <div class="ob-step done"></div>
+      <div class="ob-step done"></div>
+      <div class="ob-step done"></div>
+      <div class="ob-step done"></div>
+      <div class="ob-step done"></div>
+    </div>
+    <h2>设置你的第一个保护计划</h2>
+    <div class="card">
+      <h3>提醒时间（提前 30 分钟）</h3>
+      <p class="sub">到了这个时间，我会提醒你准备休息</p>
+      <div class="time-picker">
+        <select id="notH"><option value="20">20</option><option value="21" selected>21</option><option value="22">22</option></select>
+        <span>:</span>
+        <select id="notM"><option value="30" selected>30</option><option value="00">00</option></select>
+      </div>
+    </div>
+    <div class="card">
+      <h3>快要控制不住时，给你什么帮助？</h3>
+      <div class="options" id="ob5opts">
+        <div class="option" data-v="breath"><div class="opt-title">🫁 深呼吸引导（30秒）</div><div class="opt-desc">跟着节奏呼吸，让大脑冷静下来</div></div>
+        <div class="option selected" data-v="distance"><div class="opt-title">📏 把手机放远，5分钟计时</div><div class="opt-desc">物理隔离是最有效的方式之一</div></div>
+        <div class="option" data-v="reason"><div class="opt-title">💭 给我一个撑过今晚的理由</div><div class="opt-desc">提醒你为什么要改变</div></div>
+        <div class="option" data-v="notify"><div class="opt-title">👥 通知一个监督的人</div><div class="opt-desc">社交压力是有效的</div></div>
+      </div>
+      <input class="input" id="supervisorInput" placeholder="监督者昵称（可选）" />
+    </div>
+    <button class="btn full" id="ob5finish">完成，进入今天</button>
+  </section>
+
+  <!-- HOME -->
+  <section class="screen" id="s-home">
+    <!-- 动态风险状态 -->
+    <div class="card" id="riskCard" style="margin-bottom:var(--gap)">
+      <div class="row space" style="margin-bottom:10px">
+        <div class="risk-badge high" id="riskBadge">⚡ 高风险时段临近</div>
+        <div class="small" id="homeDate"></div>
+      </div>
+      <p id="riskMsg" style="font-size:15px;font-weight:600;margin-bottom:6px">今晚 <span id="homeRiskTime">22:00</span> 是你的高风险时间</p>
+      <p class="small" id="riskCountdown">距离现在还有 —</p>
+      <p class="small" style="margin-top:6px;color:var(--success)">昨晚你在这个时间点撑过去了 ✅</p>
+    </div>
+
+    <!-- 今日核心行动 -->
+    <div class="card">
+      <div class="row space" style="margin-bottom:8px">
+        <h3 style="margin:0">今晚只做这一件事</h3>
+        <button class="btn-icon" id="changeActionBtn" style="font-size:16px">✎</button>
+      </div>
+      <p id="homeActionText" style="font-size:15px;margin-bottom:6px">到了 22:00，把手机放到床头柜以外的地方</p>
+      <p class="small" style="color:var(--success)">昨天用这个方法，你少刷了 47 分钟 ✅</p>
+    </div>
+
+    <!-- 连续守护天数 -->
+    <div class="card">
+      <div class="streak">
+        <div class="num" id="streakNum">4</div>
+        <div class="lbl">连续守护的晚上</div>
+        <div class="note">即使昨晚没扛住<br/>你今晚回来就算继续，没有归零</div>
+      </div>
+    </div>
+
+    <!-- 紧急按钮 -->
+    <button class="panic-btn" id="panicBtn">我现在快要控制不住了</button>
+
+    <div style="height:var(--gap)"></div>
+
+    <!-- 本周概览 -->
+    <div class="card">
+      <h3>本周概览</h3>
+      <div class="stat-row">
+        <div class="stat-box">
+          <div class="val" style="color:var(--success)">5</div>
+          <div class="lbl">成功扛住</div>
+        </div>
+        <div class="stat-box">
+          <div class="val" style="color:var(--purple)">2</div>
+          <div class="lbl">失控了</div>
+        </div>
+        <div class="stat-box">
+          <div class="val" style="color:var(--accent)">3.2h</div>
+          <div class="lbl">节省时间</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INTERVENTION -->
+  <section class="screen" id="s-interv">
+    <h2>紧急干预</h2>
+
+    <!-- Step 1: 确认状态 -->
+    <div id="iv1">
+      <div class="card">
+        <h3>现在是什么情况？</h3>
+        <p class="sub">诚实告诉我，我来帮你</p>
+      </div>
+      <div class="interv-opts">
+        <div class="interv-opt" data-iv="already">
+          <div class="io-title">😰 我已经在刷了，停不下来</div>
+          <div class="io-sub">开始干预模式</div>
+        </div>
+        <div class="interv-opt" data-iv="pre">
+          <div class="io-title">🤔 我刚拿起手机，想提前拦住自己</div>
+          <div class="io-sub">提前保护模式</div>
+        </div>
+        <div class="interv-opt" data-iv="check">
+          <div class="io-title">👀 我只是来看看</div>
+          <div class="io-sub">了解今晚的状态</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: 共情 -->
+    <div id="iv2" style="display:none">
+      <div class="card success">
+        <h3>没关系</h3>
+        <p class="sub">你愿意打开这里，已经很厉害了。<br/>现在我们只需要做一件事。</p>
+        <button class="btn full success-btn" id="ivReady">好，我准备好了</button>
+      </div>
+    </div>
+
+    <!-- Step 3: 干预动作 -->
+    <div id="iv3" style="display:none">
+      <div class="card" id="ivActionCard">
+        <h3>现在做这个动作</h3>
+        <div id="ivActionContent"></div>
+      </div>
+      <div class="grid-2" style="margin-top:var(--gap)">
+        <button class="btn success-btn" id="ivSuccess">✅ 扛过去了</button>
+        <button class="btn purple-btn" id="ivFail">💜 没扛住</button>
+      </div>
+    </div>
+
+    <!-- Step PRE: 提前保护 -->
+    <div id="ivPre" style="display:none">
+      <div class="card">
+        <h3>你提前来了 👍</h3>
+        <p class="sub">这比扛住要容易得多。现在选一个动作：</p>
+        <div class="options">
+          <div class="option" data-pre="brush"><div class="opt-title">🪥 去刷牙（结束今晚的信号）</div></div>
+          <div class="option" data-pre="charge"><div class="opt-title">🔌 把手机放到充电处（物理隔离）</div></div>
+          <div class="option" data-pre="audio"><div class="opt-title">🎵 开一个 10 分钟睡前音频</div></div>
+          <div class="option" data-pre="write"><div class="opt-title">✏️ 写下明天一件要做的事</div></div>
+        </div>
+        <button class="btn full" id="ivPreDone">我做了，去睡觉</button>
+      </div>
+    </div>
+
+    <!-- Step CHECK: 只是看看 -->
+    <div id="ivCheck" style="display:none">
+      <div class="card">
+        <h3>没问题 😊</h3>
+        <p class="sub">今晚 <span id="ivCheckTime">22:00</span> 是你的高风险时段。<br/>如果到时候需要帮助，记得打开这里。</p>
+        <button class="btn full" id="ivCheckBack">返回主页</button>
+      </div>
+    </div>
+
+    <!-- Fail Record -->
+    <div id="ivFailRecord" style="display:none">
+      <div class="card purple">
+        <h3>没事 💜</h3>
+        <p class="sub">你打开了这里，说明你没有放弃。<br/>记录一下是什么让你继续刷了？</p>
+        <div class="options" id="failOpts">
+          <div class="option" data-f="tired"><div class="opt-title">😮‍💨 太累了，根本不想控制</div></div>
+          <div class="option" data-f="content"><div class="opt-title">📲 刷到了停不下来的内容</div></div>
+          <div class="option" data-f="forget"><div class="opt-title">🔔 忘记设置提醒了</div></div>
+          <div class="option" data-f="stress"><div class="opt-title">😤 今天压力特别大</div></div>
+        </div>
+        <button class="btn full purple-btn" id="ivFailDone">记录完成，明晚再试</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- SUCCESS -->
+  <section class="screen" id="s-success">
+    <h2>今晚过去了 🌙</h2>
+    <div class="card success">
+      <div class="saved-time">
+        <div class="big" id="savedMins">47</div>
+        <div class="lbl">分钟</div>
+        <div class="note">今晚你保护了这些时间<br/>本周累计节省了 <span id="weekSaved">3.2</span> 小时</div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>你在 <span id="successTime">22:47</span> 用了"<span id="successMethod">放远手机 5 分钟</span>"扛住了</h3>
+      <p class="small" style="margin-top:6px">这是你本周第 2 次用这个方法，成功率 100% ✅</p>
+    </div>
+    <div class="card">
+      <h3>今晚哪里最难扛？</h3>
+      <div class="options" id="whyOpts">
+        <div class="option" data-w="start"><div class="opt-title">刚拿起手机的那一刻</div></div>
+        <div class="option" data-w="push"><div class="opt-title">看到推送通知时</div></div>
+        <div class="option" data-w="cont"><div class="opt-title">刷了几分钟很想继续</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>明天几点提醒你？</h3>
+      <div class="remind-quick" id="remindQuick">
+        <div class="rq-btn sel" data-rq="same">还是 21:30</div>
+        <div class="rq-btn" data-rq="early">提早到 21:00</div>
+        <div class="rq-btn" data-rq="later">推迟到 22:00</div>
+      </div>
+    </div>
+    <button class="btn full success-btn" id="successDone">去睡觉，明天继续 🌙</button>
+  </section>
+
+  <!-- FAIL -->
+  <section class="screen" id="s-fail">
+    <h2>今晚刷了 💜</h2>
+    <div class="card purple">
+      <h3>没事，这很正常</h3>
+      <p class="sub">你打开了这里，说明你没有放弃。<br/>失败是数据，不是评判。</p>
+    </div>
+    <div class="card">
+      <h3>是什么让你继续刷了？</h3>
+      <div class="options" id="failOpts2">
+        <div class="option" data-f2="tired"><div class="opt-title">😮‍💨 太累了，根本不想控制</div></div>
+        <div class="option" data-f2="content"><div class="opt-title">📲 刷到了停不下来的内容</div></div>
+        <div class="option" data-f2="forget"><div class="opt-title">🔔 忘记设置提醒了</div></div>
+        <div class="option" data-f2="stress"><div class="opt-title">😤 今天压力特别大</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>明晚提前一点开始保护？</h3>
+      <div class="remind-quick" id="failRemind">
+        <div class="rq-btn sel" data-fr="same">还是 21:30</div>
+        <div class="rq-btn" data-fr="early">提早到 21:00</div>
+        <div class="rq-btn" data-fr="custom">自己设置</div>
+      </div>
+    </div>
+    <button class="btn full" id="failDone">好了，去睡觉</button>
+  </section>
+
+  <!-- WEEKLY -->
+  <section class="screen" id="s-weekly">
+    <h2>本周洞察</h2>
+    <div class="card success">
+      <div class="row space">
+        <div>
+          <h3 style="margin-bottom:4px">整体表现</h3>
+          <p class="small">比上周提升了 40%</p>
+        </div>
+        <div class="tag s">↑ 进步中</div>
+      </div>
+      <div class="stat-row" style="margin-top:12px">
+        <div class="stat-box"><div class="val" style="color:var(--success)">5</div><div class="lbl">扛住次数</div></div>
+        <div class="stat-box"><div class="val" style="color:var(--purple)">2</div><div class="lbl">失控次数</div></div>
+        <div class="stat-box"><div class="val" style="color:var(--accent)">3.2h</div><div class="lbl">节省时间</div></div>
+      </div>
+    </div>
+
+    <!-- 每日记录 -->
+    <div class="card">
+      <h3>这周每天</h3>
+      <div class="chart" id="weekChart">
+        <div class="bar success-bar" style="height:80%" data-d="周一"><div class="bl">周一</div></div>
+        <div class="bar success-bar" style="height:60%" data-d="周二"><div class="bl">周二</div></div>
+        <div class="bar fail-bar" style="height:90%" data-d="周三"><div class="bl">周三</div></div>
+        <div class="bar success-bar" style="height:70%" data-d="周四"><div class="bl">周四</div></div>
+        <div class="bar fail-bar" style="height:85%" data-d="周五"><div class="bl">周五</div></div>
+        <div class="bar success-bar" style="height:55%" data-d="周六"><div class="bl">周六</div></div>
+        <div class="bar success-bar" style="height:65%" data-d="周日"><div class="bl">周日</div></div>
+      </div>
+      <div class="row" style="margin-top:24px;gap:16px">
+        <div class="row" style="gap:6px"><div style="width:10px;height:10px;border-radius:2px;background:var(--success)"></div><div class="small">扛住</div></div>
+        <div class="row" style="gap:6px"><div style="width:10px;height:10px;border-radius:2px;background:var(--purple)"></div><div class="small">失控</div></div>
+      </div>
+    </div>
+
+    <!-- 守护记录 -->
+    <div class="card">
+      <h3>守护记录</h3>
+      <div class="timeline">
+        <div class="tl-item"><div class="tl-dot s"></div><div class="tl-label"><div>扛住了 ✅</div><div class="day">周一 · 22:00-22:47 · 物理隔离</div></div></div>
+        <div class="tl-item"><div class="tl-dot s"></div><div class="tl-label"><div>扛住了 ✅</div><div class="day">周二 · 22:00-22:30 · 深呼吸</div></div></div>
+        <div class="tl-item"><div class="tl-dot f"></div><div class="tl-label"><div>失控了 💜</div><div class="day">周三 · 23:10 · 压力大</div></div></div>
+        <div class="tl-item"><div class="tl-dot s"></div><div class="tl-label"><div>扛住了 ✅</div><div class="day">周四 · 21:50-22:40 · 物理隔离</div></div></div>
+        <div class="tl-item"><div class="tl-dot f"></div><div class="tl-label"><div>失控了 💜</div><div class="day">周五 · 23:30 · 加班回家</div></div></div>
+        <div class="tl-item"><div class="tl-dot s"></div><div class="tl-label"><div>扛住了 ✅</div><div class="day">周六 · 22:00-22:55 · 物理隔离</div></div></div>
+        <div class="tl-item"><div class="tl-dot s"></div><div class="tl-label"><div>扛住了 ✅</div><div class="day">周日 · 22:00-22:35 · 深呼吸</div></div></div>
+      </div>
+    </div>
+
+    <!-- 高风险模式 -->
+    <div class="card warn">
+      <h3>⚠️ 你的高风险模式</h3>
+      <p class="sub">最危险的时间：周三、周五 23:00 之后</p>
+      <p class="sub">最容易触发的状态：工作压力大的那几天</p>
+      <p class="small" style="color:var(--warn)">加班回家后，失控概率提升 3 倍</p>
+    </div>
+
+    <!-- 有效方法 -->
+    <div class="card">
+      <h3>什么方法对你最有效</h3>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+        <div class="row space"><div class="tag s">✅ 物理隔离（3/3 次成功）</div><div class="small">最有效</div></div>
+        <div class="row space"><div class="tag s">✅ 深呼吸（2/2 次成功）</div><div class="small">有效</div></div>
+        <div class="row space"><div class="tag w">❌ 给自己理由（0/1 次成功）</div><div class="small">不适合你</div></div>
+      </div>
+      <p class="small" style="margin-top:10px;color:var(--accent)">建议：下周优先使用"物理隔离"</p>
+    </div>
+
+    <!-- 可量化收益 -->
+    <div class="card accent">
+      <h3>💰 本周你节省了</h3>
+      <div class="saved-time">
+        <div class="big" style="font-size:52px">3.2</div>
+        <div class="lbl">小时</div>
+        <div class="note">≈ 2 个完整睡眠周期<br/>≈ 明天早上不再头脑昏沉<br/>≈ 本月预计多出 13 小时可支配时间</div>
+      </div>
+    </div>
+
+    <!-- 下周调整 -->
+    <div class="card">
+      <h3>下周计划调整</h3>
+      <p class="sub">根据这周的数据，我做一点调整：</p>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:var(--gap)">
+        <div class="tag a">📅 周三/周五提前到 21:30 提醒你</div>
+        <div class="tag a">🛡️ 优先使用"物理隔离"干预</div>
+        <div class="tag a">⚠️ 加班当晚开启特别保护模式</div>
+      </div>
+      <button class="btn full" id="weeklyApply">好，就这样</button>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section class="screen" id="s-settings">
+    <h2>设置</h2>
+    <div class="card">
+      <h3>我的风险档案</h3>
+      <p>高风险时段：<span id="setRiskTime">22:00</span></p>
+      <p class="small" style="margin-top:4px">触发状态：<span id="setTrigger">习惯性拿起手机</span></p>
+    </div>
+    <div class="card">
+      <h3>保护提醒时间</h3>
+      <div class="time-picker">
+        <select id="setH"><option>20</option><option value="21" selected>21</option><option>22</option></select>
+        <span>:</span>
+        <select id="setM"><option value="30" selected>30</option><option value="00">00</option></select>
+      </div>
+    </div>
+    <div class="card">
+      <h3>默认干预方式</h3>
+      <div class="options" id="setActionOpts">
+        <div class="option" data-sa="breath"><div class="opt-title">🫁 深呼吸引导</div></div>
+        <div class="option selected" data-sa="distance"><div class="opt-title">📏 物理隔离（放远手机）</div></div>
+        <div class="option" data-sa="reason"><div class="opt-title">💭 给我一个理由</div></div>
+        <div class="option" data-sa="notify"><div class="opt-title">👥 通知监督者</div></div>
+      </div>
+      <input class="input" id="setSupervisor" placeholder="监督者昵称（可选）" style="margin-top:10px" />
+    </div>
+    <button class="btn full" id="settingsSave">保存设置</button>
+  </section>
+
+  <!-- MODAL: 换动作 -->
+  <div class="modal" id="modalAction">
+    <div class="modal-box">
+      <h3 style="margin-bottom:var(--gap)">换一个今晚的核心动作</h3>
+      <div class="options" id="modalOpts">
+        <div class="option" data-ma="breath"><div class="opt-title">🫁 深呼吸引导</div></div>
+        <div class="option selected" data-ma="distance"><div class="opt-title">📏 物理隔离（放远手机）</div></div>
+        <div class="option" data-ma="reason"><div class="opt-title">💭 给我一个理由</div></div>
+        <div class="option" data-ma="notify"><div class="opt-title">👥 通知监督者</div></div>
+      </div>
+      <button class="btn full secondary" id="modalClose">关闭</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <nav class="nav">
+    <div class="nav-item active" data-nav="home"><div class="ni">🏠</div><div>今天</div></div>
+    <div class="nav-item" data-nav="weekly"><div class="ni">📊</div><div>复盘</div></div>
+    <div class="nav-item" data-nav="settings"><div class="ni">⚙️</div><div>设置</div></div>
+  </nav>
+</div>
+
+<script>
+// =========================================
+// STATE
+// =========================================
+const S = {
+  lang: 'zh',
+  problem: 'phone',
+  riskH: 22, riskM: 0,
+  notH: 21, notM: 30,
+  trigger: 'habit',
+  action: 'distance',
+  supervisor: '',
+  streak: 4,
+  successCount: 3,
+  weekSaved: 3.2,
+  ivMode: 'already',
+};
+
+// =========================================
+// UTIL
+// =========================================
+function $(id) { return document.getElementById(id); }
+function qsa(sel) { return document.querySelectorAll(sel); }
+function fmt(h, m) { return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`; }
+
+function showScreen(id) {
+  qsa('.screen').forEach(s => s.classList.remove('active'));
+  $(id).classList.add('active');
+  qsa('.nav-item').forEach(n => n.classList.remove('active'));
+  const key = id.replace('s-','');
+  document.querySelector(`.nav-item[data-nav="${key}"]`)?.classList.add('active');
+  // background theme
+  document.body.className = '';
+  if (id === 's-success') document.body.classList.add('bg-success');
+  if (id === 's-fail') document.body.classList.add('bg-fail');
+  if (id === 's-interv') document.body.classList.add('bg-risk');
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+function optionGroup(parentSel, dataKey, cb) {
+  qsa(parentSel + ' .option').forEach(o => {
+    o.addEventListener('click', () => {
+      qsa(parentSel + ' .option').forEach(x => x.classList.remove('selected'));
+      o.classList.add('selected');
+      if (cb) cb(o.dataset[dataKey] || '');
+    });
+  });
+}
+
+// =========================================
+// RISK LEVEL (dynamic)
+// =========================================
+function updateRiskLevel() {
+  const now = new Date();
+  const h = now.getHours(), m = now.getMinutes();
+  const riskMin = S.riskH * 60 + S.riskM;
+  const nowMin = h * 60 + m;
+  const diff = riskMin - nowMin;
+
+  const badge = $('riskBadge');
+  const msg = $('riskMsg');
+  const cd = $('riskCountdown');
+
+  $('homeRiskTime').textContent = fmt(S.riskH, S.riskM);
+
+  if (diff > 60) {
+    badge.className = 'risk-badge normal';
+    badge.textContent = '✅ 安全时段';
+    msg.textContent = `今晚 ${fmt(S.riskH, S.riskM)} 是你的高风险时间`;
+    const dh = Math.floor(diff/60), dm = diff%60;
+    cd.textContent = `距离高风险时段还有 ${dh > 0 ? dh+'小时' : ''}${dm}分钟`;
+  } else if (diff > 0) {
+    badge.className = 'risk-badge high';
+    badge.textContent = '⚡ 高风险时段临近';
+    msg.textContent = `${diff} 分钟后进入高风险时段，注意手机使用`;
+    cd.textContent = `准备好你的保护动作`;
+  } else if (diff > -120) {
+    badge.className = 'risk-badge critical';
+    badge.textContent = '🔴 高风险时段进行中';
+    msg.textContent = `现在是你最容易失控的时段`;
+    cd.textContent = `如果感觉快撑不住，点下面的按钮`;
+  } else {
+    badge.className = 'risk-badge normal';
+    badge.textContent = '🌙 今晚快结束了';
+    msg.textContent = `今晚已经度过了最危险的时段`;
+    cd.textContent = `你快可以好好睡觉了`;
+  }
+}
+
+function updateDate() {
+  const d = new Date();
+  const days = ['周日','周一','周二','周三','周四','周五','周六'];
+  $('homeDate').textContent = `${d.getMonth()+1}月${d.getDate()}日 ${days[d.getDay()]}`;
+}
+
+// =========================================
+// ACTION TEXT
+// =========================================
+const actionMap = {
+  breath:   '到了高风险时段，先做一个 30 秒深呼吸',
+  distance: `到了 ${fmt(22,0)}，把手机放到床头柜以外的地方`,
+  reason:   '到了高风险时段，想想明天早上你想要的状态',
+  notify:   '到了高风险时段，发消息给你的监督者',
+};
+function updateHomeAction() {
+  actionMap.distance = `到了 ${fmt(S.riskH, S.riskM)}，把手机放到床头柜以外的地方`;
+  $('homeActionText').textContent = actionMap[S.action] || actionMap.distance;
+}
+
+// =========================================
+// BREATH ANIMATION CONTENT
+// =========================================
+function renderAction(key) {
+  const c = $('ivActionContent');
+  c.innerHTML = '';
+  if (key === 'breath') {
+    c.innerHTML = `
+      <div class="breath-wrap">
+        <div class="breath-ring">
+          <div>
+            <div class="breath-label" id="breathLabel">吸气</div>
+            <div class="breath-step">4 · 4 · 6</div>
+          </div>
+        </div>
+        <p class="small" style="text-align:center">吸气 4 秒 / 屏住 4 秒 / 呼气 6 秒<br/>跟着节奏，感受大脑逐渐平静</p>
+      </div>`;
+    let phase = 0;
+    const phases = [
+      {l:'吸气',d:4000},
+      {l:'屏住',d:4000},
+      {l:'呼气',d:6000},
+    ];
+    let breathTimer;
+    function nextPhase() {
+      const el = $('breathLabel');
+      if (!el) return;
+      el.textContent = phases[phase].l;
+      breathTimer = setTimeout(() => { phase = (phase+1)%3; nextPhase(); }, phases[phase].d);
+    }
+    nextPhase();
+  } else if (key === 'distance') {
+    let sec = 300;
+    c.innerHTML = `
+      <div class="ring-wrap">
+        <div class="ring-center">
+          <svg width="160" height="160">
+            <circle cx="80" cy="80" r="68" stroke="rgba(255,255,255,0.1)" stroke-width="10" fill="none"/>
+            <circle id="ringArc" cx="80" cy="80" r="68" stroke="var(--accent)" stroke-width="10" stroke-linecap="round" fill="none" stroke-dasharray="427" stroke-dashoffset="0"/>
+          </svg>
+          <div class="ring-value" id="ringVal">5:00</div>
+        </div>
+        <p class="small" style="text-align:center">把手机放远，5 分钟之后再决定<br/>很多时候，这 5 分钟就够了</p>
+      </div>`;
+    const arc = $('ringArc'), val = $('ringVal'), total = 427;
+    const t = setInterval(() => {
+      sec--;
+      const mm = Math.floor(sec/60), ss = sec%60;
+      if (val) val.textContent = `${mm}:${String(ss).padStart(2,'0')}`;
+      if (arc) arc.style.strokeDashoffset = total*(1 - sec/300);
+      if (sec <= 0) { clearInterval(t); showSuccessPage(); }
+    }, 1000);
+  } else if (key === 'reason') {
+    c.innerHTML = `
+      <div style="padding:20px 0;text-align:center">
+        <p style="font-size:18px;font-weight:600;margin-bottom:12px">"你昨晚撑过去了<br/>今晚你也可以"</p>
+        <p class="small">明天早上 8 点，你需要一个清醒的大脑</p>
+        <p class="small" style="margin-top:8px">上周你少刷的 3 小时，让你多睡了 2 天好觉</p>
+      </div>`;
+  } else if (key === 'notify') {
+    c.innerHTML = `
+      <div style="padding:16px 0">
+        <p style="margin-bottom:12px">正在通知：<strong>${S.supervisor || '你的监督者'}</strong></p>
+        <div style="background:var(--card-2);border-radius:var(--radius-md);padding:14px;font-size:14px;color:var(--text-2)">
+          "我现在想刷手机，帮我盯一下 🙏"
+        </div>
+        <p class="small" style="margin-top:10px;color:var(--success)">消息已准备好，你不是一个人</p>
+      </div>`;
+  }
+}
+
+// =========================================
+// SUCCESS / FAIL PAGE
+// =========================================
+function showSuccessPage() {
+  S.successCount++;
+  S.streak++;
+  $('streakNum').textContent = S.streak;
+  const now = new Date();
+  $('successTime').textContent = fmt(now.getHours(), now.getMinutes());
+  const methodLabel = {breath:'深呼吸 30 秒', distance:'放远手机 5 分钟', reason:'给自己一个理由', notify:'通知监督者'};
+  $('successMethod').textContent = methodLabel[S.action] || '物理隔离';
+  $('savedMins').textContent = Math.floor(30 + Math.random()*40);
+  $('weekSaved').textContent = (S.weekSaved + 0.5).toFixed(1);
+  showScreen('s-success');
+}
+
+// =========================================
+// OB FLOW
+// =========================================
+$('ob1next').addEventListener('click', () => showScreen('s-ob2'));
+
+optionGroup('#s-ob2', 'v', v => S.problem = v);
+$('ob2next').addEventListener('click', () => showScreen('s-ob3'));
+
+$('rH').addEventListener('change', e => S.riskH = parseInt(e.target.value));
+$('rM').addEventListener('change', e => S.riskM = parseInt(e.target.value));
+optionGroup('#s-ob3', 'v', v => S.trigger = v);
+$('ob3next').addEventListener('click', () => {
+  showScreen('s-ob4');
+  $('ob4load').style.display = 'flex';
+  $('ob4result').style.display = 'none';
+  setTimeout(() => {
+    $('ob4load').style.display = 'none';
+    $('ob4result').style.display = 'block';
+    $('ob4time').textContent = fmt(S.riskH, S.riskM);
+    const tMap = {tired:'很累但睡不着',anxious:'有点焦虑想逃避',habit:'习惯性拿起手机',bored:'无聊不知道做什么'};
+    $('ob4trigger').textContent = tMap[S.trigger] || tMap.habit;
+  }, 1800);
+});
+
+$('ob4next').addEventListener('click', () => showScreen('s-ob5'));
+
+$('notH').addEventListener('change', e => S.notH = parseInt(e.target.value));
+$('notM').addEventListener('change', e => S.notM = parseInt(e.target.value));
+optionGroup('#s-ob5', 'v', v => S.action = v);
+$('supervisorInput').addEventListener('input', e => S.supervisor = e.target.value.trim());
+$('ob5finish').addEventListener('click', () => {
+  updateHomeAction();
+  updateRiskLevel();
+  updateDate();
+  syncSettings();
+  showScreen('s-home');
+  showToast('保护计划已启动 🛡️');
+});
+
+// =========================================
+// HOME
+// =========================================
+$('changeActionBtn').addEventListener('click', () => $('modalAction').classList.add('active'));
+$('modalClose').addEventListener('click', () => $('modalAction').classList.remove('active'));
+optionGroup('#modalOpts', 'ma', v => {
+  S.action = v;
+  updateHomeAction();
+  $('modalAction').classList.remove('active');
+  showToast('核心动作已更新');
+});
+
+$('panicBtn').addEventListener('click', () => {
+  // reset interv
+  $('iv1').style.display = 'block';
+  $('iv2').style.display = 'none';
+  $('iv3').style.display = 'none';
+  $('ivPre').style.display = 'none';
+  $('ivCheck').style.display = 'none';
+  $('ivFailRecord').style.display = 'none';
+  showScreen('s-interv');
+});
+
+// =========================================
+// INTERVENTION
+// =========================================
+qsa('.interv-opt').forEach(opt => {
+  opt.addEventListener('click', () => {
+    S.ivMode = opt.dataset.iv;
+    $('iv1').style.display = 'none';
+    if (S.ivMode === 'already') {
+      $('iv2').style.display = 'block';
+    } else if (S.ivMode === 'pre') {
+      $('ivPre').style.display = 'block';
+    } else {
+      $('ivCheck').style.display = 'block';
+      $('ivCheckTime').textContent = fmt(S.riskH, S.riskM);
+    }
+  });
+});
+
+$('ivReady').addEventListener('click', () => {
+  $('iv2').style.display = 'none';
+  $('iv3').style.display = 'block';
+  renderAction(S.action);
+});
+
+$('ivSuccess').addEventListener('click', () => showSuccessPage());
+$('ivFail').addEventListener('click', () => {
+  $('iv3').style.display = 'none';
+  $('ivFailRecord').style.display = 'block';
+});
+
+optionGroup('#s-interv #failOpts', 'f', () => {});
+$('ivFailDone').addEventListener('click', () => showScreen('s-fail'));
+
+optionGroup('#ivPre', 'pre', () => {});
+$('ivPreDone').addEventListener('click', () => showSuccessPage());
+
+$('ivCheckBack').addEventListener('click', () => showScreen('s-home'));
+
+// =========================================
+// SUCCESS
+// =========================================
+optionGroup('#s-success', 'w', () => {});
+qsa('#remindQuick .rq-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    qsa('#remindQuick .rq-btn').forEach(b => b.classList.remove('sel'));
+    btn.classList.add('sel');
+    showToast('提醒时间已更新');
+  });
+});
+$('successDone').addEventListener('click', () => showScreen('s-home'));
+
+// =========================================
+// FAIL
+// =========================================
+optionGroup('#s-fail', 'f2', () => {});
+qsa('#failRemind .rq-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    qsa('#failRemind .rq-btn').forEach(b => b.classList.remove('sel'));
+    btn.classList.add('sel');
+    showToast('已更新明晚提醒时间');
+  });
+});
+$('failDone').addEventListener('click', () => showScreen('s-home'));
+
+// =========================================
+// WEEKLY
+// =========================================
+$('weeklyApply').addEventListener('click', () => {
+  showToast('下周计划已应用 ✅');
+  showScreen('s-home');
+});
+
+// =========================================
+// SETTINGS
+// =========================================
+function syncSettings() {
+  $('setRiskTime').textContent = fmt(S.riskH, S.riskM);
+  const tMap = {tired:'很累但睡不着',anxious:'有点焦虑想逃避',habit:'习惯性拿起手机',bored:'无聊不知道做什么'};
+  $('setTrigger').textContent = tMap[S.trigger] || tMap.habit;
+  $('setH').value = S.notH;
+  $('setM').value = S.notM;
+  $('setSupervisor').value = S.supervisor;
+  qsa('#setActionOpts .option').forEach(o => {
+    o.classList.toggle('selected', o.dataset.sa === S.action);
+  });
+}
+$('settingsBtn').addEventListener('click', () => { syncSettings(); showScreen('s-settings'); });
+optionGroup('#setActionOpts', 'sa', v => S.action = v);
+$('setH').addEventListener('change', e => S.notH = parseInt(e.target.value));
+$('setM').addEventListener('change', e => S.notM = parseInt(e.target.value));
+$('setSupervisor').addEventListener('input', e => S.supervisor = e.target.value.trim());
+$('settingsSave').addEventListener('click', () => {
+  updateHomeAction();
+  updateRiskLevel();
+  showToast('设置已保存 ✅');
+  showScreen('s-home');
+});
+
+// =========================================
+// NAV
+// =========================================
+qsa('.nav-item').forEach(n => {
+  n.addEventListener('click', () => showScreen('s-' + n.dataset.nav));
+});
+
+// =========================================
+// LANG TOGGLE (simple)
+// =========================================
+$('langBtn').addEventListener('click', () => {
+  S.lang = S.lang === 'zh' ? 'en' : 'zh';
+  $('langBtn').textContent = S.lang === 'zh' ? '中/EN' : 'EN/中';
+  showToast(S.lang === 'zh' ? '语言已切换为中文' : 'Switched to English');
+});
+
+// =========================================
+// INIT
+// =========================================
+updateDate();
+updateRiskLevel();
+updateHomeAction();
+setInterval(updateRiskLevel, 60000);
+setInterval(updateDate, 60000);
+</script>
+</body>
+</html>
